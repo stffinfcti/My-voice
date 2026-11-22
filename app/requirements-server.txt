@@ -1,0 +1,9 @@
+transformers>=4.46
+peft>=0.13
+safetensors
+librosa
+soundfile
+jiwer
+fastapi
+uvicorn
+python-multipart
