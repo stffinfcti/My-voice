@@ -35,7 +35,7 @@
     },
     async start() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("nosupport");
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
       // Some iOS versions misreport audio if the context rate differs from the mic; rebuild it then.
       const tr = this.stream.getAudioTracks()[0], set = tr && tr.getSettings ? tr.getSettings() : {};
       if (set.sampleRate && Math.abs(set.sampleRate - this.ctx.sampleRate) > 1) {
@@ -77,8 +77,8 @@
       const all = new Float32Array(n); let o = 0; for (const c of this.chunks) { all.set(c, o); o += c.length; }
       this.chunks = [];
       try { this.ctx.suspend(); } catch (e) {}
-      const y = resample(all, sr, 16000);
-      return { blob: encodeWav(y, 16000), seconds: n / sr, env: envelope(y, 72) };
+      // Send the mic's own sample rate untouched; the server resamples to 16 kHz with a proper filter.
+      return { blob: encodeWav(all, sr), seconds: n / sr, env: envelope(all, 72) };
     },
   };
   function resample(x, from, to) {

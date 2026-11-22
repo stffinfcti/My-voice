@@ -11,7 +11,8 @@ app = FastAPI(title="My Voice")
 HERE = os.path.dirname(os.path.abspath(__file__))
 VOICES = {}            # id -> adapter dict (kept in memory for this server run)
 JOBS = {}              # job id -> {"state","progress","desc","voice","error"}
-MAX_AUDIO_BYTES = 3_000_000
+MAX_AUDIO_BYTES = 8_000_000
+LAST_WAV = os.path.join(tempfile.gettempdir(), "myvoice_last.wav")
 for p in sorted(glob.glob(os.path.join(HERE, "voices", "*.safetensors"))):
     try: VOICES["demo-" + os.path.splitext(os.path.basename(p))[0]] = core.load_adapter(p)
     except Exception as e: print("skip demo voice", p, e)
@@ -19,9 +20,16 @@ for p in sorted(glob.glob(os.path.join(HERE, "voices", "*.safetensors"))):
 def _wav(upload: UploadFile):
     data = upload.file.read(MAX_AUDIO_BYTES + 1)
     if len(data) > MAX_AUDIO_BYTES: raise HTTPException(413, "Recording too long.")
+    try: open(LAST_WAV, "wb").write(data)          # keep the latest take so you can listen to what the server got
+    except Exception: pass
     try: y, sr = sf.read(io.BytesIO(data), dtype="float32")
     except Exception: raise HTTPException(400, "Couldn't read that recording.")
     return (sr, y)
+
+@app.get("/api/last.wav")
+def last_wav():
+    if not os.path.exists(LAST_WAV): raise HTTPException(404, "No recording yet")
+    return FileResponse(LAST_WAV, media_type="audio/wav")
 
 @app.get("/api/info")
 def info():
