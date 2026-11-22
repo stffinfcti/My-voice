@@ -9,8 +9,8 @@ Speech recognition that learns how *you* talk. Record about 30 short phrases, an
 Built during EvoHacks II. Uses Whisper (OpenAI, MIT), TORGO (Rudzicz et al. 2012, academic/non-profit use), Hugging Face Transformers + PEFT.
 
 ## Run it
-- **Hugging Face Space:** create a Space (SDK: Docker, blank) and add `space/Dockerfile` as its `Dockerfile`. It clones this repo and serves the app on port 7860.
-- **Locally:** `pip install torch -r app/requirements-server.txt && python app/server.py`, then open http://localhost:7860.
+- **Try it on a free Colab GPU:** open `notebooks/02_try_the_app.ipynb` in Google Colab, pick a T4 GPU, Run all, and open the public link it prints. To also use the shared TORGO model, run `notebooks/01_train_base.ipynb` first and then this line in a new cell: `!git clone -q --depth 1 https://github.com/stffinfcti/my-voice /content/app; python /content/app/colab/serve.py`
+- **Locally or any Docker host:** `pip install torch -r app/requirements-server.txt && python app/server.py`, then open http://localhost:7860. `Dockerfile` and `space/Dockerfile` build the same server.
 
 ## License
 Code: MIT. TORGO data is not included; it is free for academic and non-profit use (Rudzicz et al., 2012).

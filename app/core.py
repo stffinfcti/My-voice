@@ -13,6 +13,7 @@ SR = 16000
 BASE_MODEL = os.environ.get("MYVOICE_BASE", "openai/whisper-base")
 SHARED_ADAPTER = os.environ.get("MYVOICE_SHARED_ADAPTER", "")  # HF repo id or local dir of the TORGO LoRA
 torch.set_num_threads(max(1, os.cpu_count() or 1))
+DEV = "cuda" if torch.cuda.is_available() else "cpu"  # GPU when there is one (Colab), else CPU
 
 _lock = threading.Lock()
 _state = {}
@@ -51,12 +52,13 @@ def _load():
     for m in (stock, mine):
         m.generation_config.forced_decoder_ids = None
         m.config.forced_decoder_ids = None
+    stock, mine = stock.to(DEV), mine.to(DEV)
     _state.update(proc=proc, stock=stock, mine=mine.eval(), shared=bool(SHARED_ADAPTER))
     return _state
 
 def _features(audios):
     fe = _load()["proc"].feature_extractor
-    return fe(audios, sampling_rate=SR, return_tensors="pt").input_features
+    return fe(audios, sampling_rate=SR, return_tensors="pt").input_features.to(DEV)
 
 @torch.no_grad()
 def transcribe(audio, which="mine", adapter=None):
@@ -112,14 +114,14 @@ def train_personal(clips, texts, epochs=8, lr=1e-3, batch_size=8, progress=None,
             L = max(len(labels[i]) for i in idx)
             lab = torch.full((len(idx), L), -100, dtype=torch.long)
             for r, i in enumerate(idx): lab[r, :len(labels[i])] = torch.tensor(labels[i])
-            loss = model(input_features=feats[idx], labels=lab).loss
+            loss = model(input_features=feats[idx], labels=lab.to(DEV)).loss
             loss.backward(); torch.nn.utils.clip_grad_norm_(params, 1.0)
             opt.step(); sched.step(); opt.zero_grad()
             losses.append(loss.item()); step += 1
             if progress: progress(step / total, desc=f"Learning your voice: step {step}/{total}")
     model.eval()
     return {"id": f"voice-{int(time.time()*1000)}", "config": LORA,
-            "weights": {k: v.detach().clone() for k, v in get_peft_model_state_dict(model).items()},
+            "weights": {k: v.detach().cpu().clone() for k, v in get_peft_model_state_dict(model).items()},
             "base": BASE_MODEL, "shared": SHARED_ADAPTER, "n_clips": n,
             "train_seconds": round(time.time() - t0, 1), "final_loss": float(np.mean(losses[-steps_per_epoch:]))}
 
