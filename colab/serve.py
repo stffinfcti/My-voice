@@ -13,6 +13,8 @@ ROOT = os.path.dirname(HERE)
 PORT = "7860"
 
 subprocess.run([sys.executable, "-m", "pip", "-q", "install", "-r", os.path.join(ROOT, "app", "requirements-server.txt")], check=True)
+# Colab ships an old torchao that new peft refuses to load; the app does not need it
+subprocess.run([sys.executable, "-m", "pip", "-q", "uninstall", "-y", "torchao"])
 
 cf = "/content/cloudflared"
 if not os.path.exists(cf):

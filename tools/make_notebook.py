@@ -14,6 +14,7 @@ Fine-tunes Whisper on TORGO (speech from people with dysarthria) with a LoRA ada
 code(r'''
 # 1. Setup
 !pip -q install peft jiwer soundfile
+!pip -q uninstall -y torchao   # Colab ships an old torchao that new peft refuses to load; we do not need it
 import torch, sys
 assert torch.cuda.is_available(), "No GPU. Go to Runtime > Change runtime type > T4 GPU, then Run all again."
 print("GPU:", torch.cuda.get_device_name(0))
