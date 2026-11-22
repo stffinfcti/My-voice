@@ -39,13 +39,31 @@ def trim(y, top_db=35):
     yt, _ = librosa.effects.trim(y, top_db=top_db)
     return yt if len(yt) > SR * 0.2 else y
 
+_load_lock = threading.Lock()
+
+def _whisper():
+    """Load real weights (not meta placeholders) so .to(DEV) always works."""
+    from transformers import WhisperForConditionalGeneration as W
+    try:
+        m = W.from_pretrained(BASE_MODEL, low_cpu_mem_usage=False)
+    except (TypeError, ValueError):
+        m = W.from_pretrained(BASE_MODEL)
+    if any(p.is_meta for p in m.parameters()):
+        raise RuntimeError("Whisper loaded without weights; restart the runtime and run the serve cell again.")
+    return m
+
 def _load():
     if _state: return _state
-    from transformers import WhisperProcessor, WhisperForConditionalGeneration
+    with _load_lock:  # requests run in parallel threads; load once
+        if _state: return _state
+        return _load_now()
+
+def _load_now():
+    from transformers import WhisperProcessor
     proc = WhisperProcessor.from_pretrained(BASE_MODEL)
     proc.tokenizer.set_prefix_tokens(language="english", task="transcribe")
-    stock = WhisperForConditionalGeneration.from_pretrained(BASE_MODEL).eval()
-    mine = WhisperForConditionalGeneration.from_pretrained(BASE_MODEL)
+    stock = _whisper().eval()
+    mine = _whisper()
     if SHARED_ADAPTER:
         from peft import PeftModel
         mine = PeftModel.from_pretrained(mine, SHARED_ADAPTER).merge_and_unload()
